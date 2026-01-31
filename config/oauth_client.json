@@ -1,0 +1,13 @@
+{
+	"web": {
+		"client_id": "753748379433-etm9adpdte9t7q4mpbu2bk8mod89fhgm.apps.googleusercontent.com",
+		"project_id": "infobits-485507",
+		"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+		"token_uri": "https://oauth2.googleapis.com/token",
+		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+		"client_secret": "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",
+		"redirect_uris": [
+			"http://localhost:3001/oauth2callback"
+		]
+	}
+}
