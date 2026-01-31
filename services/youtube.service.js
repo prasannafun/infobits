@@ -1,25 +1,29 @@
 const fs = require("fs")
-const { youtube } = require("../config/oauth")
+const { youtube, oauth2Client } = require("../config/oauth")
 
-exports.upload = async ({ filePath, title }) => {
+exports.upload = async ({ filePath, title, description, tags }) => {
+	if (!oauth2Client.credentials?.refresh_token) {
+		throw new Error("YouTube OAuth not authenticated. Visit /auth")
+	}
+
 	const upload = await youtube.videos.insert({
 		part: ["snippet", "status"],
 		requestBody: {
 			snippet: {
 				title,
-				description: "Motivation Shorts | InfoBits",
-				categoryId: "22",
+				description,
+				tags,
+				categoryId: "22", // People & Blogs (best for shorts)
 			},
 			status: {
-				privacyStatus: "private",
+				privacyStatus: "public",
+				selfDeclaredMadeForKids: false,
 			},
 		},
 		media: {
 			body: fs.createReadStream(filePath),
 		},
 	})
-
-    console.log('Video uploaded to YouTube with ID:', upload.data.id);
 
 	return `https://youtube.com/watch?v=${upload.data.id}`
 }

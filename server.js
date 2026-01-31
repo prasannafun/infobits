@@ -1,4 +1,6 @@
+require("dotenv").config()
 const express = require("express")
+const voiceService = require("./services/voice.service")
 
 const renderRoutes = require("./routes/render.route")
 const authRoutes = require("./routes/auth.route")
@@ -16,3 +18,11 @@ app.get("/", (_, res) => {
 app.listen(3001, () =>
 	console.log("🚀 Server running on http://localhost:3001")
 )
+
+app.get("/test-voice", async (_, res) => {
+	await voiceService.generateVoice(
+		"Discipline beats motivation every single day.",
+		"./test.mp3"
+	)
+	res.send("Voice generated")
+})

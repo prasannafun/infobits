@@ -5,26 +5,26 @@ const ffmpegService = require("../services/ffmpeg.service")
 const voiceService = require("../services/voice.service")
 const youtubeService = require("../services/youtube.service")
 const { wrapText } = require("../services/text.service")
+const { safeDelete } = require("../utils/file.util")
+const { buildYouTubeMetadata } = require("../services/metadata.service")
+
 
 exports.renderVideo = async (req, res) => {
+	let outputFile
+	let voiceFile
+
 	try {
 		let { videoUrl, quote, out } = req.body
-
-		if (!videoUrl || !quote) {
-			return res.status(400).send("videoUrl and quote required")
-		}
 
 		out = String(out || Date.now()).replace(/[:.]/g, "_")
 		quote = quote.replace(/[']/g, "")
 
 		const outputDir = path.join(__dirname, "../output")
-
 		if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir)
 
-		const outputFile = path.join(outputDir, `${out}.mp4`)
-		const voiceFile = path.join(outputDir, `${out}.wav`)
+		outputFile = path.join(outputDir, `${out}.mp4`)
+		voiceFile = path.join(outputDir, `${out}.mp3`)
 
-		// services
 		await voiceService.generateVoice(quote, voiceFile)
 
 		const lines = wrapText(quote, 22)
@@ -36,21 +36,27 @@ exports.renderVideo = async (req, res) => {
 			outputFile,
 		})
 
-		const youtubeUrl = await youtubeService.upload({
-			filePath: outputFile,
-			title: quote.slice(0, 90),
-		})
+        const metadata = buildYouTubeMetadata(quote)
 
-		// cleanup
-		fs.unlinkSync(outputFile)
-		fs.unlinkSync(voiceFile)
+        const youtubeUrl = await youtubeService.upload({
+            filePath: outputFile,
+            title: metadata.title,
+            description: metadata.description,
+            tags: metadata.tags,
+        })
+        
 
 		res.json({
 			success: true,
 			url: youtubeUrl,
 		})
 	} catch (err) {
-		console.error(err)
+		console.error("RENDER ERROR:", err)
 		res.status(500).send("Render failed")
+	} finally {
+		// 🔥 CLEANUP (always runs)
+		safeDelete(outputFile)
+		safeDelete(voiceFile)
 	}
 }
+
