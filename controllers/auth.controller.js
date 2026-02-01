@@ -1,4 +1,4 @@
-const { oauth2Client, saveTokens } = require("../config/oauth")
+const { oauth2Client } = require("../config/oauth")
 
 exports.login = (req, res) => {
 	const url = oauth2Client.generateAuthUrl({
@@ -16,9 +16,13 @@ exports.callback = async (req, res) => {
 		const { tokens } = await oauth2Client.getToken(req.query.code)
 
 		oauth2Client.setCredentials(tokens)
-		saveTokens(tokens)
 
-		res.send("✅ OAuth successful! You can close this tab.")
+		console.log("🔐 COPY THIS AND SAVE AS YOUTUBE_TOKENS ENV:")
+		console.log(JSON.stringify(tokens))
+
+		res.send(
+			"✅ OAuth successful! Tokens printed in logs. Save them in Render ENV and redeploy."
+		)
 	} catch (err) {
 		console.error("OAuth error:", err)
 		res.status(500).send("OAuth failed")

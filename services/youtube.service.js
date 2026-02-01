@@ -2,7 +2,10 @@ const fs = require("fs")
 const { youtube, oauth2Client } = require("../config/oauth")
 
 exports.upload = async ({ filePath, title, description, tags }) => {
-	if (!oauth2Client.credentials?.refresh_token) {
+	if (
+		!oauth2Client.credentials ||
+		!oauth2Client.credentials.refresh_token
+	) {
 		throw new Error("YouTube OAuth not authenticated. Visit /auth")
 	}
 
@@ -13,7 +16,7 @@ exports.upload = async ({ filePath, title, description, tags }) => {
 				title,
 				description,
 				tags,
-				categoryId: "22", // People & Blogs (best for shorts)
+				categoryId: "22", // People & Blogs
 			},
 			status: {
 				privacyStatus: "public",

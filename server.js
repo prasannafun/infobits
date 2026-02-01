@@ -1,24 +1,22 @@
 require("dotenv").config()
 const express = require("express")
-const voiceService = require("./services/voice.service")
+const path = require("path")
 
+const voiceService = require("./services/voice.service")
 const renderRoutes = require("./routes/render.route")
 const authRoutes = require("./routes/auth.route")
 
 const app = express()
 app.use(express.json())
 
+// ✅ Serve static UI
+app.use(express.static(path.join(__dirname, "public")))
+
+// Routes
 app.use("/", authRoutes)
 app.use("/", renderRoutes)
 
-app.get("/", (_, res) => {
-	res.send("🚀 FFmpeg + YouTube Automation Server Running")
-})
-
-app.listen(3001, () =>
-	console.log("🚀 Server running on https://infobits.onrender.com")
-)
-
+// Test voice route (optional – you can remove in prod)
 app.get("/test-voice", async (_, res) => {
 	await voiceService.generateVoice(
 		"Discipline beats motivation every single day.",
@@ -26,3 +24,12 @@ app.get("/test-voice", async (_, res) => {
 	)
 	res.send("Voice generated")
 })
+
+// ❌ 404 handler (must be LAST)
+app.use((req, res) => {
+	res.status(404).sendFile(path.join(__dirname, "public/404.html"))
+})
+
+app.listen(3001, () =>
+	console.log("🚀 Server running on https://infobits.onrender.com")
+)
