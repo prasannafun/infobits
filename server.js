@@ -16,7 +16,7 @@ app.get("/", (_, res) => {
 })
 
 app.listen(3001, () =>
-	console.log("🚀 Server running on http://localhost:3001")
+	console.log("🚀 Server running on https://infobits.onrender.com")
 )
 
 app.get("/test-voice", async (_, res) => {

@@ -36,7 +36,7 @@ const oauth2Client = new google.auth.OAuth2(
 	client_secret,
 	process.env.OAUTH_REDIRECT_URI ||
 	redirect_uris[0] ||
-	"http://localhost:3001/oauth2callback"
+	"https://infobits.onrender.com/oauth2callback"
 )
 
 /* =========================

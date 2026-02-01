@@ -1,9 +1,22 @@
 const { spawn } = require("child_process")
 
-exports.renderVideo = ({ videoUrl, voiceFile, lines, outputFile }) => {
+exports.renderVideo = ({
+	videoUrl,
+	voiceFile,
+	lines,
+	audioDuration,
+	outputFile,
+}) => {
 	return new Promise((resolve, reject) => {
+		if (!audioDuration || isNaN(audioDuration) || !lines?.length) {
+			return reject("Invalid audio duration or empty text lines")
+		}
+
+		/* -----------------------
+		   TEXT TIMING (SYNCED)
+		----------------------- */
+		const secPerLine = audioDuration / lines.length
 		let t = 0
-		const secPerLine = 2.5
 
 		const textFilters = lines
 			.map((line) => {
@@ -21,7 +34,7 @@ exports.renderVideo = ({ videoUrl, voiceFile, lines, outputFile }) => {
 					`boxborderw=24:` +
 					`x=(w-text_w)/2:` +
 					`y=(h-text_h)/2:` +
-					`enable='between(t,${start},${end})'`
+					`enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`
 				)
 			})
 			.join(",")
@@ -33,24 +46,15 @@ exports.renderVideo = ({ videoUrl, voiceFile, lines, outputFile }) => {
 
 		const args = [
 			"-y",
-			"-i",
-			videoUrl,
-			"-i",
-			voiceFile,
-			"-vf",
-			filters,
-			"-af",
-			"apad=pad_dur=10",
-			"-map",
-			"0:v",
-			"-map",
-			"1:a",
-			"-c:v",
-			"h264_videotoolbox",
-			"-c:a",
-			"aac",
-			"-movflags",
-			"+faststart",
+			"-i", videoUrl,
+			"-i", voiceFile,
+			"-vf", filters,
+			"-map", "0:v",
+			"-map", "1:a",
+			"-t", audioDuration.toFixed(2),
+			"-c:v", "h264_videotoolbox",
+			"-c:a", "aac",
+			"-movflags", "+faststart",
 			outputFile,
 		]
 
