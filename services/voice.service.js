@@ -3,23 +3,34 @@ const axios = require("axios")
 const { spawn } = require("child_process")
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
-const VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
+
+if (!ELEVENLABS_API_KEY) {
+	throw new Error("❌ ELEVENLABS_API_KEY is missing")
+}
+
+// ✅ REPLACE with your OWN voice ID
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID
+
+if (!VOICE_ID) {
+	throw new Error("❌ ELEVENLABS_VOICE_ID is missing")
+}
 
 async function elevenLabsVoice(text, outputFile) {
-	const response = await axios({
-		method: "POST",
-		url: `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
-		headers: {
-			"xi-api-key": ELEVENLABS_API_KEY,
-			"Content-Type": "application/json",
-			Accept: "audio/mpeg",
-		},
-		responseType: "stream",
-		data: {
+	const response = await axios.post(
+		`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+		{
 			text,
 			model_id: "eleven_multilingual_v2",
 		},
-	})
+		{
+			headers: {
+				"xi-api-key": ELEVENLABS_API_KEY,
+				"Content-Type": "application/json",
+				Accept: "audio/mpeg",
+			},
+			responseType: "stream",
+		}
+	)
 
 	await new Promise((resolve, reject) => {
 		const stream = fs.createWriteStream(outputFile)
@@ -49,10 +60,16 @@ exports.generateVoice = async (text, outputFile) => {
 		await elevenLabsVoice(text, outputFile)
 		console.log("🎙 ElevenLabs voice used")
 	} catch (err) {
-		if (err.response?.status === 402) {
-			console.warn("⚠️ ElevenLabs quota exceeded — using fallback voice")
+		const status = err.response?.status
+
+		// ✅ fallback on BOTH 401 & 402
+		if (status === 401 || status === 402) {
+			console.warn(
+				`⚠️ ElevenLabs failed (${status}) — using fallback voice`
+			)
 			await macVoice(text, outputFile)
 		} else {
+			console.error("❌ Voice generation failed:", err.message)
 			throw err
 		}
 	}
