@@ -13,7 +13,7 @@ function getRandomMusicFile() {
 }
 
 /**
- * FREE OFFLINE TTS using espeak-ng
+ * FREE OFFLINE TTS — espeak-ng
  */
 function generateVoiceRaw(text, voiceFile) {
 	return new Promise((resolve, reject) => {

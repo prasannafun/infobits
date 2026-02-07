@@ -52,7 +52,12 @@ exports.renderVideo = ({
 			"-map", "0:v",
 			"-map", "1:a",
 			"-t", audioDuration.toFixed(2),
-			"-c:v", "h264_videotoolbox",
+
+			// ✅ LINUX / RENDER SAFE
+			"-c:v", "libx264",
+			"-preset", "veryfast",
+			"-pix_fmt", "yuv420p",
+
 			"-c:a", "aac",
 			"-movflags", "+faststart",
 			outputFile,
