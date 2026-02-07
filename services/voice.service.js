@@ -4,46 +4,34 @@ const { exec } = require("child_process")
 
 const MUSIC_DIR = path.join(__dirname, "../music")
 
-/**
- * Pick a random music file
- */
 function getRandomMusicFile() {
 	const files = fs.readdirSync(MUSIC_DIR).filter(f =>
 		f.endsWith(".mp3") || f.endsWith(".wav")
 	)
-
-	if (files.length === 0) {
-		throw new Error("❌ No music files found")
-	}
-
-	return path.join(
-		MUSIC_DIR,
-		files[Math.floor(Math.random() * files.length)]
-	)
+	if (!files.length) throw new Error("No music files found")
+	return path.join(MUSIC_DIR, files[Math.floor(Math.random() * files.length)])
 }
 
 /**
- * Generate voice using pico2wave (FREE, OFFLINE, DOCKER-SAFE)
+ * FREE OFFLINE TTS using espeak-ng
  */
 function generateVoiceRaw(text, voiceFile) {
 	return new Promise((resolve, reject) => {
 		const safeText = text.replace(/"/g, "")
-		const cmd = `pico2wave -w "${voiceFile}" "${safeText}"`
-
-		exec(cmd, err => {
-			if (err) return reject(err)
-			resolve()
-		})
+		const cmd = `
+			espeak-ng "${safeText}" --stdout | \
+			ffmpeg -y -f wav -i pipe:0 -ar 44100 -ac 2 "${voiceFile}"
+		`
+		exec(cmd, err => (err ? reject(err) : resolve()))
 	})
 }
 
 /**
- * Mix voice + background music (random middle cut)
+ * Mix voice + background music
  */
 function mixWithMusic(voiceFile, outputFile) {
 	return new Promise((resolve, reject) => {
 		const musicFile = getRandomMusicFile()
-
 		const cmd = `
 			ffmpeg -y \
 			-i "${voiceFile}" \
@@ -54,23 +42,15 @@ function mixWithMusic(voiceFile, outputFile) {
 				afade=t=in:st=0:d=0.5,
 				afade=t=out:st=14.5:d=0.5
 			" \
-			-t 15 \
-			"${outputFile}"
+			-t 15 "${outputFile}"
 		`
-
-		exec(cmd, err => {
-			if (err) return reject(err)
-			resolve()
-		})
+		exec(cmd, err => (err ? reject(err) : resolve()))
 	})
 }
 
-/**
- * EXPORTED FUNCTION
- */
 exports.generateVoice = async (text, outputFile) => {
 	if (!text || typeof text !== "string") {
-		throw new Error("❌ Invalid text")
+		throw new Error("Invalid text")
 	}
 
 	await fs.promises.mkdir(path.dirname(outputFile), { recursive: true })
@@ -85,8 +65,6 @@ exports.generateVoice = async (text, outputFile) => {
 		await mixWithMusic(tempVoice, outputFile)
 		console.log("🎙 Voice + music generated (FREE)")
 	} finally {
-		if (fs.existsSync(tempVoice)) {
-			fs.unlinkSync(tempVoice)
-		}
+		if (fs.existsSync(tempVoice)) fs.unlinkSync(tempVoice)
 	}
 }
