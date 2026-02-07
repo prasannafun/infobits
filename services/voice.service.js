@@ -16,22 +16,21 @@ function getRandomMusicFile() {
 		throw new Error("❌ No music files found")
 	}
 
-	const randomFile = files[Math.floor(Math.random() * files.length)]
-	return path.join(MUSIC_DIR, randomFile)
+	return path.join(
+		MUSIC_DIR,
+		files[Math.floor(Math.random() * files.length)]
+	)
 }
 
 /**
- * Generate voice using espeak (FREE, OFFLINE)
+ * Generate voice using pico2wave (FREE, OFFLINE, DOCKER-SAFE)
  */
 function generateVoiceRaw(text, voiceFile) {
 	return new Promise((resolve, reject) => {
 		const safeText = text.replace(/"/g, "")
-		const cmd = `
-			espeak "${safeText}" --stdout | \
-			ffmpeg -y -f wav -i pipe:0 -ar 44100 -ac 2 "${voiceFile}"
-		`
+		const cmd = `pico2wave -w "${voiceFile}" "${safeText}"`
 
-		exec(cmd, (err) => {
+		exec(cmd, err => {
 			if (err) return reject(err)
 			resolve()
 		})
@@ -50,7 +49,7 @@ function mixWithMusic(voiceFile, outputFile) {
 			-i "${voiceFile}" \
 			-stream_loop -1 -i "${musicFile}" \
 			-filter_complex "
-				[1:a]volume=0.12,atrim=start=30[m];
+				[1:a]volume=0.12,atrim=start=25[m];
 				[0:a][m]amix=inputs=2:dropout_transition=2,
 				afade=t=in:st=0:d=0.5,
 				afade=t=out:st=14.5:d=0.5
@@ -59,7 +58,7 @@ function mixWithMusic(voiceFile, outputFile) {
 			"${outputFile}"
 		`
 
-		exec(cmd, (err) => {
+		exec(cmd, err => {
 			if (err) return reject(err)
 			resolve()
 		})
@@ -74,21 +73,17 @@ exports.generateVoice = async (text, outputFile) => {
 		throw new Error("❌ Invalid text")
 	}
 
+	await fs.promises.mkdir(path.dirname(outputFile), { recursive: true })
+
 	const tempVoice = path.join(
 		path.dirname(outputFile),
 		`voice_${Date.now()}.wav`
 	)
 
-	await fs.promises.mkdir(path.dirname(outputFile), { recursive: true })
-
 	try {
 		await generateVoiceRaw(text, tempVoice)
 		await mixWithMusic(tempVoice, outputFile)
-
 		console.log("🎙 Voice + music generated (FREE)")
-	} catch (err) {
-		console.error("❌ Voice generation failed:", err.message)
-		throw err
 	} finally {
 		if (fs.existsSync(tempVoice)) {
 			fs.unlinkSync(tempVoice)
