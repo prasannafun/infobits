@@ -19,7 +19,7 @@ exports.upload = async ({ filePath, title, description, tags }) => {
 				categoryId: "22", // People & Blogs
 			},
 			status: {
-				privacyStatus: "public",
+				privacyStatus: "private",
 				selfDeclaredMadeForKids: false,
 			},
 		},

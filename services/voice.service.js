@@ -1,6 +1,6 @@
 const fs = require("fs")
 const axios = require("axios")
-const { spawn } = require("child_process")
+// const { spawn } = require("child_process")
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
 
@@ -40,21 +40,6 @@ async function elevenLabsVoice(text, outputFile) {
 	})
 }
 
-function macVoice(text, outputFile) {
-	return new Promise((resolve, reject) => {
-		const say = spawn("say", [
-			"-v",
-			"Samantha",
-			"-o",
-			outputFile,
-			"--data-format=LEI16@44100",
-			text,
-		])
-		say.on("close", resolve)
-		say.on("error", reject)
-	})
-}
-
 exports.generateVoice = async (text, outputFile) => {
 	try {
 		await elevenLabsVoice(text, outputFile)
@@ -62,15 +47,13 @@ exports.generateVoice = async (text, outputFile) => {
 	} catch (err) {
 		const status = err.response?.status
 
-		// ✅ fallback on BOTH 401 & 402
 		if (status === 401 || status === 402) {
-			console.warn(
-				`⚠️ ElevenLabs failed (${status}) — using fallback voice`
+			console.error(
+				`❌ ElevenLabs failed (${status}). No fallback available in production.`
 			)
-			await macVoice(text, outputFile)
-		} else {
-			console.error("❌ Voice generation failed:", err.message)
-			throw err
+			throw new Error("Voice generation failed (ElevenLabs)")
 		}
+
+		throw err
 	}
 }
