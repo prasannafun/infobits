@@ -8,6 +8,9 @@ if (!ELEVENLABS_API_KEY) {
 	throw new Error("❌ ELEVENLABS_API_KEY is missing")
 }
 
+console.log("ELEVENLABS_API_KEY present:", !!process.env.ELEVENLABS_API_KEY)
+console.log("ELEVENLABS_API_KEY:", process.env.ELEVENLABS_API_KEY)
+
 // ✅ REPLACE with your OWN voice ID
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID
 
@@ -29,6 +32,7 @@ async function elevenLabsVoice(text, outputFile) {
 				Accept: "audio/mpeg",
 			},
 			responseType: "stream",
+			timeout: 30000, // 👈 REQUIRED on Render
 		}
 	)
 
@@ -45,14 +49,12 @@ exports.generateVoice = async (text, outputFile) => {
 		await elevenLabsVoice(text, outputFile)
 		console.log("🎙 ElevenLabs voice used")
 	} catch (err) {
-		const status = err.response?.status
-
-		if (status === 401 || status === 402) {
-			console.error(
-				`❌ ElevenLabs failed (${status}). No fallback available in production.`
-			)
-			throw new Error("Voice generation failed (ElevenLabs)")
-		}
+		console.error("ElevenLabs error:", {
+			status: err.response?.status,
+			data: err.response?.data,
+			message: err.message,
+		})
+		throw new Error("Voice generation failed (ElevenLabs)")
 
 		throw err
 	}
