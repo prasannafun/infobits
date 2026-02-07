@@ -1,21 +1,34 @@
+const fs = require("fs")
+const path = require("path")
 const { spawn } = require("child_process")
+
+const MUSIC_DIR = path.join(__dirname, "../music")
+
+function getRandomMusicFile() {
+	const files = fs
+		.readdirSync(MUSIC_DIR)
+		.filter((f) => f.endsWith(".mp3") || f.endsWith(".wav"))
+	if (!files.length) throw new Error("No music files found")
+	return path.join(MUSIC_DIR, files[Math.floor(Math.random() * files.length)])
+}
 
 exports.renderVideo = ({
 	videoUrl,
-	voiceFile,
 	lines,
-	audioDuration,
 	outputFile,
+	duration = 15, // default Shorts duration
 }) => {
 	return new Promise((resolve, reject) => {
-		if (!audioDuration || isNaN(audioDuration) || !lines?.length) {
-			return reject("Invalid audio duration or empty text lines")
+		if (!lines?.length) {
+			return reject("Empty text lines")
 		}
 
+		const musicFile = getRandomMusicFile()
+
 		/* -----------------------
-		   TEXT TIMING (SYNCED)
+		   TEXT TIMING
 		----------------------- */
-		const secPerLine = audioDuration / lines.length
+		const secPerLine = duration / lines.length
 		let t = 0
 
 		const textFilters = lines
@@ -46,20 +59,46 @@ exports.renderVideo = ({
 
 		const args = [
 			"-y",
-			"-i", videoUrl,
-			"-i", voiceFile,
-			"-vf", filters,
-			"-map", "0:v",
-			"-map", "1:a",
-			"-t", audioDuration.toFixed(2),
 
-			// ✅ LINUX / RENDER SAFE
-			"-c:v", "libx264",
-			"-preset", "veryfast",
-			"-pix_fmt", "yuv420p",
+			// Video
+			"-i",
+			videoUrl,
 
-			"-c:a", "aac",
-			"-movflags", "+faststart",
+			// Background music (looped)
+			"-stream_loop",
+			"-1",
+			"-i",
+			musicFile,
+
+			// Video filters
+			"-vf",
+			filters,
+
+			// Audio volume + trim
+			"-filter:a",
+			"volume=0.15",
+
+			"-map",
+			"0:v:0",
+			"-map",
+			"1:a:0",
+
+			"-t",
+			duration.toFixed(2),
+
+			// Linux-safe encoding
+			"-c:v",
+			"libx264",
+			"-preset",
+			"veryfast",
+			"-pix_fmt",
+			"yuv420p",
+
+			"-c:a",
+			"aac",
+			"-movflags",
+			"+faststart",
+
 			outputFile,
 		]
 
