@@ -1,92 +1,96 @@
 const fs = require("fs")
 const path = require("path")
-const axios = require("axios")
+const { exec } = require("child_process")
+
+const MUSIC_DIR = path.join(__dirname, "../music")
 
 /**
- * ENV VALIDATION
+ * Pick a random music file
  */
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID
-
-if (!ELEVENLABS_API_KEY) {
-	throw new Error("❌ ELEVENLABS_API_KEY is missing")
-}
-
-if (!ELEVENLABS_VOICE_ID) {
-	throw new Error("❌ ELEVENLABS_VOICE_ID is missing")
-}
-
-console.log("✅ ElevenLabs API key present")
-console.log("✅ ElevenLabs Voice ID present")
-
-/**
- * OPTIONAL: AUTH CHECK (RUNS ONCE)
- * Helps you immediately know if key / plan / scope is valid
- */
-async function validateElevenLabsAuth() {
-	try {
-		await axios.get("https://api.elevenlabs.io/v1/voices", {
-			headers: {
-				"xi-api-key": ELEVENLABS_API_KEY,
-				"User-Agent": "infobits-render/1.0",
-			},
-			timeout: 10000,
-		})
-		console.log("✅ ElevenLabs auth validated")
-	} catch (err) {
-		console.error("❌ ElevenLabs auth failed:", {
-			status: err.response?.status,
-			message: err.message,
-		})
-		throw new Error("ElevenLabs authentication failed")
-	}
-}
-
-/**
- * CORE TTS FUNCTION (BASE64 – SAFE FOR N8N)
- */
-async function elevenLabsVoice(text, outputFile) {
-	if (!text || typeof text !== "string" || text.trim().length === 0) {
-		throw new Error("❌ Invalid text for TTS")
-	}
-
-	const response = await axios.post(
-		`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
-		{
-			text,
-			model_id: "eleven_multilingual_v2",
-			output_format: "mp3_44100_128",
-		},
-		{
-			headers: {
-				"xi-api-key": ELEVENLABS_API_KEY,
-				"Content-Type": "application/json",
-				"User-Agent": "infobits-render/1.0",
-			},
-			timeout: 30000,
-		}
+function getRandomMusicFile() {
+	const files = fs.readdirSync(MUSIC_DIR).filter(f =>
+		f.endsWith(".mp3") || f.endsWith(".wav")
 	)
 
-	const audioBuffer = Buffer.from(response.data, "base64")
+	if (files.length === 0) {
+		throw new Error("❌ No music files found")
+	}
 
-	await fs.promises.mkdir(path.dirname(outputFile), { recursive: true })
-	await fs.promises.writeFile(outputFile, audioBuffer)
+	const randomFile = files[Math.floor(Math.random() * files.length)]
+	return path.join(MUSIC_DIR, randomFile)
 }
 
 /**
- * EXPORTED FUNCTION (USED BY CONTROLLER / N8N)
+ * Generate voice using espeak (FREE, OFFLINE)
+ */
+function generateVoiceRaw(text, voiceFile) {
+	return new Promise((resolve, reject) => {
+		const cmd = `
+			espeak-ng "${text.replace(/"/g, "")}" \
+			--stdout | ffmpeg -y -i pipe:0 -ar 44100 -ac 2 "${voiceFile}"
+		`
+
+		exec(cmd, (err) => {
+			if (err) return reject(err)
+			resolve()
+		})
+	})
+}
+
+/**
+ * Mix voice + background music (random middle cut)
+ */
+function mixWithMusic(voiceFile, outputFile) {
+	return new Promise((resolve, reject) => {
+		const musicFile = getRandomMusicFile()
+
+		const cmd = `
+			ffmpeg -y \
+			-i "${voiceFile}" \
+			-stream_loop -1 -i "${musicFile}" \
+			-filter_complex "
+				[1:a]volume=0.12,atrim=start=30[m];
+				[0:a][m]amix=inputs=2:dropout_transition=2,
+				afade=t=in:st=0:d=0.5,
+				afade=t=out:st=14.5:d=0.5
+			" \
+			-t 15 \
+			"${outputFile}"
+		`
+
+		exec(cmd, (err) => {
+			if (err) return reject(err)
+			resolve()
+		})
+	})
+}
+
+/**
+ * EXPORTED FUNCTION
  */
 exports.generateVoice = async (text, outputFile) => {
+	if (!text || typeof text !== "string") {
+		throw new Error("❌ Invalid text")
+	}
+
+	const tempVoice = path.join(
+		path.dirname(outputFile),
+		`voice_${Date.now()}.wav`
+	)
+
+	await fs.promises.mkdir(path.dirname(outputFile), { recursive: true })
+
 	try {
-		await validateElevenLabsAuth()
-		await elevenLabsVoice(text, outputFile)
-		console.log("🎙 ElevenLabs voice generated successfully")
+		await generateVoiceRaw(text, tempVoice)
+		await mixWithMusic(tempVoice, outputFile)
+
+		console.log("🎙 Voice + music generated (FREE)")
 	} catch (err) {
-		console.error("❌ ElevenLabs error:", {
-			status: err.response?.status,
-			data: err.response?.data,
-			message: err.message,
-		})
-		throw new Error("Voice generation failed (ElevenLabs)")
+		console.error("❌ Voice generation failed:", err.message)
+		throw err
+	} finally {
+		if (fs.existsSync(tempVoice)) {
+			fs.unlinkSync(tempVoice)
+		}
 	}
 }
