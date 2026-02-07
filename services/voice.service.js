@@ -25,9 +25,10 @@ function getRandomMusicFile() {
  */
 function generateVoiceRaw(text, voiceFile) {
 	return new Promise((resolve, reject) => {
+		const safeText = text.replace(/"/g, "")
 		const cmd = `
-			espeak-ng "${text.replace(/"/g, "")}" \
-			--stdout | ffmpeg -y -i pipe:0 -ar 44100 -ac 2 "${voiceFile}"
+			espeak "${safeText}" --stdout | \
+			ffmpeg -y -f wav -i pipe:0 -ar 44100 -ac 2 "${voiceFile}"
 		`
 
 		exec(cmd, (err) => {
