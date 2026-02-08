@@ -4,67 +4,61 @@ const { exec } = require("child_process")
 
 const MUSIC_DIR = path.join(__dirname, "../music")
 
+/**
+ * Pick a random music file from /music
+ */
 function getRandomMusicFile() {
-	const files = fs.readdirSync(MUSIC_DIR).filter(f =>
-		f.endsWith(".mp3") || f.endsWith(".wav")
+	const files = fs
+		.readdirSync(MUSIC_DIR)
+		.filter(f => f.endsWith(".mp3") || f.endsWith(".wav"))
+
+	if (!files.length) {
+		throw new Error("❌ No music files found in /music")
+	}
+
+	return path.join(
+		MUSIC_DIR,
+		files[Math.floor(Math.random() * files.length)]
 	)
-	if (!files.length) throw new Error("No music files found")
-	return path.join(MUSIC_DIR, files[Math.floor(Math.random() * files.length)])
 }
 
 /**
- * FREE OFFLINE TTS — espeak-ng
+ * Generate ONLY background music
+ * - Random middle cut
+ * - Fade in / fade out
+ * - No voice
+ * - No TTS
  */
-function generateVoiceRaw(text, voiceFile) {
-	return new Promise((resolve, reject) => {
-		const safeText = text.replace(/"/g, "")
-		const cmd = `
-			espeak-ng "${safeText}" --stdout | \
-			ffmpeg -y -f wav -i pipe:0 -ar 44100 -ac 2 "${voiceFile}"
-		`
-		exec(cmd, err => (err ? reject(err) : resolve()))
-	})
-}
-
-/**
- * Mix voice + background music
- */
-function mixWithMusic(voiceFile, outputFile) {
+function generateBackgroundMusicInternal(outputFile, duration = 15) {
 	return new Promise((resolve, reject) => {
 		const musicFile = getRandomMusicFile()
+
+		// Random start so audio is unique every time
+		const startOffset = Math.floor(Math.random() * 40)
+
 		const cmd = `
 			ffmpeg -y \
-			-i "${voiceFile}" \
-			-stream_loop -1 -i "${musicFile}" \
-			-filter_complex "
-				[1:a]volume=0.12,atrim=start=25[m];
-				[0:a][m]amix=inputs=2:dropout_transition=2,
+			-i "${musicFile}" \
+			-af "
+				volume=0.15,
+				atrim=start=${startOffset}:duration=${duration},
 				afade=t=in:st=0:d=0.5,
-				afade=t=out:st=14.5:d=0.5
+				afade=t=out:st=${duration - 0.5}:d=0.5
 			" \
-			-t 15 "${outputFile}"
+			"${outputFile}"
 		`
+
 		exec(cmd, err => (err ? reject(err) : resolve()))
 	})
 }
 
-exports.generateVoice = async (text, outputFile) => {
-	if (!text || typeof text !== "string") {
-		throw new Error("Invalid text")
-	}
-
+/**
+ * EXPORTED FUNCTION
+ */
+exports.generateBackgroundMusic = async (outputFile, duration = 15) => {
 	await fs.promises.mkdir(path.dirname(outputFile), { recursive: true })
 
-	const tempVoice = path.join(
-		path.dirname(outputFile),
-		`voice_${Date.now()}.wav`
-	)
+	await generateBackgroundMusicInternal(outputFile, duration)
 
-	try {
-		await generateVoiceRaw(text, tempVoice)
-		await mixWithMusic(tempVoice, outputFile)
-		console.log("🎙 Voice + music generated (FREE)")
-	} finally {
-		if (fs.existsSync(tempVoice)) fs.unlinkSync(tempVoice)
-	}
+	console.log("🎵 Background music generated (NO VOICE)")
 }

@@ -18,7 +18,7 @@ app.use("/", renderRoutes)
 
 // Test voice route (optional – you can remove in prod)
 app.get("/test-voice", async (_, res) => {
-	await voiceService.generateVoice(
+	await voiceService.generateBackgroundMusic(
 		"Discipline beats motivation every single day.",
 		"./test.mp3"
 	)
