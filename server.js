@@ -33,3 +33,7 @@ app.use((req, res) => {
 app.listen(3001, () =>
 	console.log("🚀 Server running on https://infobits.onrender.com")
 )
+
+app.get("/health", (req, res) => {
+	res.status(200).send("OK")
+})
