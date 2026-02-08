@@ -12,6 +12,11 @@ app.use(express.json())
 // ✅ Serve static UI
 app.use(express.static(path.join(__dirname, "public")))
 
+app.get("/health", (req, res) => {
+	res.set("Cache-Control", "no-store")
+	res.end("OK")
+})
+
 // Routes
 app.use("/", authRoutes)
 app.use("/", renderRoutes)
@@ -33,7 +38,3 @@ app.use((req, res) => {
 app.listen(3001, () =>
 	console.log("🚀 Server running on https://infobits.onrender.com")
 )
-
-app.get("/health", (req, res) => {
-	res.status(200).send("OK")
-})
