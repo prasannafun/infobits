@@ -16,7 +16,7 @@ exports.renderVideo = ({
 	videoUrl,
 	lines,
 	outputFile,
-	duration = 15, // default Shorts duration
+	duration = 15,
 }) => {
 	return new Promise((resolve, reject) => {
 		if (!lines?.length) {
@@ -33,18 +33,23 @@ exports.renderVideo = ({
 
 		const textFilters = lines
 			.map((line) => {
+				const safeLine = line
+					.replace(/:/g, "\\:")
+					.replace(/'/g, "\\'")
+					.replace(/,/g, "\\,")
+
 				const start = t
 				const end = t + secPerLine
 				t = end
 
 				return (
-					`drawtext=text='${line}':` +
-					`fontfile=fonts/Montserrat-Bold.ttf:` +
-					`fontsize=64:` +
+					`drawtext=text='${safeLine}':` +
+					`fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
+					`fontsize=60:` +
 					`fontcolor=white:` +
 					`box=1:` +
-					`boxcolor=black@0.35:` +
-					`boxborderw=24:` +
+					`boxcolor=black@0.4:` +
+					`boxborderw=20:` +
 					`x=(w-text_w)/2:` +
 					`y=(h-text_h)/2:` +
 					`enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`
@@ -53,18 +58,18 @@ exports.renderVideo = ({
 			.join(",")
 
 		const filters =
-			`scale=1080:1920:force_original_aspect_ratio=increase,` +
-			`crop=1080:1920,` +
+			`scale=720:1280:force_original_aspect_ratio=increase,` +
+			`crop=720:1280,` +
 			textFilters
 
 		const args = [
 			"-y",
 
-			// Video
+			// Input video
 			"-i",
 			videoUrl,
 
-			// Background music (looped)
+			// Loop music
 			"-stream_loop",
 			"-1",
 			"-i",
@@ -74,40 +79,56 @@ exports.renderVideo = ({
 			"-vf",
 			filters,
 
-			// Audio volume + trim
+			// Audio
 			"-filter:a",
 			"volume=0.15",
 
+			// Mapping
 			"-map",
 			"0:v:0",
 			"-map",
 			"1:a:0",
 
+			// Duration
 			"-t",
 			duration.toFixed(2),
 
-			// Linux-safe encoding
+			"-shortest",
+
+			// ⚡ FAST ENCODING SETTINGS
 			"-c:v",
 			"libx264",
 			"-preset",
-			"veryfast",
+			"ultrafast",      // MUCH faster
+			"-crf",
+			"28",             // Slightly lower quality but faster
 			"-pix_fmt",
 			"yuv420p",
+			"-threads",
+			"2",
 
 			"-c:a",
 			"aac",
+			"-b:a",
+			"128k",
+
 			"-movflags",
 			"+faststart",
 
 			outputFile,
 		]
 
+		console.log("Running FFmpeg...")
+
 		const ff = spawn("ffmpeg", args)
 
-		ff.stderr.on("data", (d) => console.log(d.toString()))
+		ff.stderr.on("data", (d) => {
+			console.log(d.toString())
+		})
 
 		ff.on("close", (code) => {
 			if (code !== 0) return reject("FFmpeg failed")
+			console.log("Video render complete")
 			resolve()
 		})
 	})
